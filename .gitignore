@@ -3,3 +3,5 @@ node_modules/
 .DS_Store
 frontend/bundle.js
 backend/dist/
+frontend/bundle.css
+cubelv-sdk.host.d.ts
