@@ -74,6 +74,19 @@ export async function createRepo(
   if (resp.status === 422) {
     throw new Error('倉庫名稱無效或已被使用');
   }
+  // 403 通常是 fine-grained token 缺少 Administration 權限
+  if (resp.status === 403) {
+    let detail = '';
+    try {
+      const data: any = await resp.json();
+      if (data.message) detail = data.message;
+    } catch { /* ignore */ }
+    throw new Error(
+      `建立倉庫失敗（HTTP 403）：${detail || '權限不足'}\n` +
+      `如果是 fine-grained token，請到 GitHub 設定補勾「Administration: Read and write」權限後重發。\n` +
+      `或改用 classic token 勾 repo 一項即可。`,
+    );
+  }
   let msg = `建立倉庫失敗（HTTP ${resp.status}）`;
   try {
     const data: any = await resp.json();

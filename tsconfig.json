@@ -18,7 +18,7 @@
     ],
     "paths": {
       "@cubelv/sdk": [
-        "/tmp/cubelv-sdk-host-QqtsYu/cubelv-sdk.d.ts"
+        "/tmp/cubelv-sdk-host-ujvu56/cubelv-sdk.d.ts"
       ],
       "lightweight-charts": [
         "/app/config/node_modules/lightweight-charts"
