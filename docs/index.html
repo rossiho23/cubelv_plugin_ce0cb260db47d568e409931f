@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GitHub 上傳助手</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif; }
+  .step-num { width: 28px; height: 28px; }
+  details summary { list-style: none; cursor: pointer; }
+  details summary::-webkit-details-marker { display: none; }
+  details[open] summary .chev { transform: rotate(90deg); }
+  .chev { transition: transform 0.15s; }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+<div class="max-w-3xl mx-auto px-4 py-8">
+  <header class="mb-6">
+    <div class="flex items-center gap-3 mb-2">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-slate-700">
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+      </svg>
+      <h1 class="text-2xl font-bold">GitHub 上傳助手</h1>
+    </div>
+    <p class="text-sm text-slate-600">選擇本機檔案或資料夾，輸入你的 GitHub 帳號、PAT 與倉庫名稱，一鍵上傳到你的 GitHub。</p>
+    <p class="text-xs text-slate-500 mt-1">
+      這是 CubeLV GitHub 上傳助手的公開版本 —
+      <a href="https://github.com/rossiho23/cubelv_plugin_ce0cb260db47d568e409931f" target="_blank" rel="noopener" class="text-blue-600 hover:underline">查看原始碼</a>
+      ・ PAT 只在你這次操作期間存在於瀏覽器記憶體，不會被儲存到任何地方
+    </p>
+  </header>
+
+  <!-- 步驟 1 -->
+  <section class="bg-white rounded-lg border border-slate-200 p-4 mb-4 shadow-sm">
+    <div class="flex items-center gap-2 mb-3">
+      <span class="step-num rounded-full bg-slate-900 text-white text-sm font-semibold flex items-center justify-center">1</span>
+      <h2 class="text-base font-semibold">選擇檔案或資料夾</h2>
+    </div>
+    <div id="dropzone" class="rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 transition-colors p-6 text-center cursor-pointer">
+      <div class="flex flex-col items-center gap-2 text-slate-500">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+        <p class="text-sm" id="dropzoneLabel">拖拽檔案或資料夾到此處，或點擊選擇</p>
+        <div id="dropzoneRoot" class="text-xs hidden"></div>
+        <div id="dropzoneButtons" class="flex gap-2 mt-2 hidden">
+          <button type="button" id="btnAddFiles" class="text-xs px-3 py-1.5 rounded border border-slate-300 hover:bg-white">加檔案</button>
+          <button type="button" id="btnAddFolder" class="text-xs px-3 py-1.5 rounded border border-slate-300 hover:bg-white">加資料夾</button>
+          <button type="button" id="btnClear" class="text-xs px-3 py-1.5 rounded border border-slate-300 hover:bg-white text-slate-600">清空</button>
+        </div>
+      </div>
+    </div>
+    <input type="file" id="fileInput" multiple class="hidden">
+    <input type="file" id="folderInput" multiple webkitdirectory directory class="hidden">
+    <div id="fileList" class="mt-2 max-h-48 overflow-y-auto rounded-md border border-slate-200 hidden"></div>
+  </section>
+
+  <!-- 步驟 2 -->
+  <section class="bg-white rounded-lg border border-slate-200 p-4 mb-4 shadow-sm">
+    <div class="flex items-center gap-2 mb-3">
+      <span class="step-num rounded-full bg-slate-900 text-white text-sm font-semibold flex items-center justify-center">2</span>
+      <h2 class="text-base font-semibold">填寫 GitHub 資訊</h2>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div>
+        <label class="text-xs text-slate-600 mb-1 block">GitHub 帳號</label>
+        <input id="owner" type="text" placeholder="octocat" class="w-full px-3 py-2 rounded border border-slate-300 focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none text-sm">
+      </div>
+      <div>
+        <label class="text-xs text-slate-600 mb-1 block">倉庫名稱</label>
+        <input id="repoName" type="text" placeholder="my-new-repo" class="w-full px-3 py-2 rounded border border-slate-300 focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none text-sm">
+      </div>
+      <div class="md:col-span-2">
+        <label class="text-xs text-slate-600 mb-1 block flex items-center gap-2">
+          <span>GitHub PAT</span>
+          <button type="button" id="btnPatGuide" class="text-blue-600 hover:underline text-xs">如何取得？</button>
+        </label>
+        <input id="token" type="password" placeholder="github_pat_xxxx 或 ghp_xxxx" class="w-full px-3 py-2 rounded border border-slate-300 focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none text-sm font-mono">
+      </div>
+    </div>
+  </section>
+
+  <!-- 步驟 3 -->
+  <section class="bg-white rounded-lg border border-slate-200 p-4 mb-4 shadow-sm">
+    <div class="flex items-center gap-2 mb-3">
+      <span class="step-num rounded-full bg-slate-900 text-white text-sm font-semibold flex items-center justify-center">3</span>
+      <h2 class="text-base font-semibold">上傳選項</h2>
+    </div>
+    <div class="space-y-3">
+      <div>
+        <label class="text-xs text-slate-600 mb-1 block">上傳模式</label>
+        <div class="inline-flex rounded border border-slate-300 overflow-hidden text-sm">
+          <button type="button" data-mode="create" class="mode-btn px-4 py-1.5 bg-slate-900 text-white">建立新倉庫</button>
+          <button type="button" data-mode="update" class="mode-btn px-4 py-1.5 bg-white text-slate-700 hover:bg-slate-100">推到既有倉庫</button>
+        </div>
+        <p class="text-xs text-slate-500 mt-1" id="modeHint">若同名倉庫已存在會自動切換為「推到既有倉庫」模式</p>
+      </div>
+      <div>
+        <label class="text-xs text-slate-600 mb-1 block">Commit 訊息</label>
+        <input id="commitMessage" type="text" value="Initial upload" class="w-full px-3 py-2 rounded border border-slate-300 focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none text-sm">
+      </div>
+      <div id="descriptionField">
+        <label class="text-xs text-slate-600 mb-1 block">倉庫描述（選填）</label>
+        <input id="description" type="text" placeholder="從 GitHub 上傳助手建立" class="w-full px-3 py-2 rounded border border-slate-300 focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none text-sm">
+      </div>
+      <label class="flex items-center justify-between rounded border border-slate-200 px-3 py-2 cursor-pointer">
+        <div>
+          <p class="text-sm font-medium">私人倉庫</p>
+          <p class="text-xs text-slate-500">只有你自己能存取這個倉庫</p>
+        </div>
+        <input type="checkbox" id="isPrivate" checked class="w-4 h-4 accent-slate-900">
+      </label>
+    </div>
+  </section>
+
+  <div class="flex gap-2 mb-4">
+    <button id="uploadBtn" type="button" class="flex-1 bg-slate-900 hover:bg-slate-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded transition-colors">建立並上傳</button>
+    <button id="resetBtn" type="button" class="px-4 py-2.5 rounded border border-slate-300 hover:bg-white disabled:opacity-50">重設</button>
+  </div>
+
+  <div id="progressBox" class="hidden bg-white rounded-lg border border-slate-200 p-4 mb-4 shadow-sm">
+    <div class="flex items-center justify-between mb-1.5">
+      <span class="text-sm font-medium" id="progressLabel">準備中...</span>
+      <span class="text-xs text-slate-500 tabular-nums" id="progressPercent">0%</span>
+    </div>
+    <div class="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+      <div id="progressBar" class="h-full bg-slate-900 transition-all duration-200" style="width: 0%"></div>
+    </div>
+    <p id="progressDetail" class="text-xs text-slate-500 mt-2"></p>
+  </div>
+
+  <div id="resultBox" class="hidden bg-white rounded-lg border border-slate-200 p-4 mb-4 shadow-sm"></div>
+  <div id="errorBox" class="hidden bg-red-50 border border-red-200 rounded-lg p-4 mb-4"></div>
+
+  <footer class="text-center text-xs text-slate-400 mt-8">
+    <p>由 <a href="https://cubelv.com" target="_blank" rel="noopener" class="hover:underline">CubeLV</a> 建置 ・ 原始碼 <a href="https://github.com/rossiho23/cubelv_plugin_ce0cb260db47d568e409931f" target="_blank" rel="noopener" class="hover:underline">GitHub</a></p>
+  </footer>
+</div>
+
+<div id="patModal" class="hidden fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 overflow-y-auto">
+  <div class="bg-white rounded-xl max-w-lg w-full p-5 max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="text-lg font-bold">如何取得 GitHub PAT</h3>
+      <button type="button" id="patModalClose" class="text-slate-500 hover:text-slate-900 text-2xl leading-none">×</button>
+    </div>
+    <div class="space-y-3 text-sm">
+      <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+        <p class="font-semibold mb-1">PAT 是什麼？</p>
+        <p class="text-slate-600 text-xs">Personal Access Token 讓這個頁面代替你操作 GitHub API。Token 只在你這次操作期間存在於瀏覽器記憶體，不會被儲存。</p>
+      </div>
+      <div class="border-2 border-slate-900 rounded-lg p-3 bg-slate-50">
+        <p class="font-semibold mb-2 flex items-center gap-2">
+          <span class="text-xs px-1.5 py-0.5 rounded bg-slate-900 text-white">推薦</span>
+          方法一：Classic token（最簡單）
+        </p>
+        <a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener" class="block rounded border border-slate-300 bg-white hover:bg-slate-100 p-2 mb-2 text-xs">
+          <div class="text-slate-500 mb-0.5">連結</div>
+          <div class="text-blue-600 break-all">https://github.com/settings/tokens/new</div>
+        </a>
+        <ul class="list-disc list-inside text-xs text-slate-700 space-y-0.5 pl-1">
+          <li>選 <b>Generate new token (classic)</b></li>
+          <li>Note 隨意填</li>
+          <li>Expiration 建議 30 或 90 天</li>
+          <li><b>Scopes 只勾 repo 一項</b></li>
+          <li>複製 <code class="px-1 py-0.5 rounded bg-white border">ghp_</code> 開頭的 token</li>
+        </ul>
+      </div>
+      <div>
+        <p class="font-semibold mb-2">方法二：Fine-grained token</p>
+        <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener" class="block rounded border border-slate-300 bg-white hover:bg-slate-100 p-2 mb-2 text-xs">
+          <div class="text-slate-500 mb-0.5">連結</div>
+          <div class="text-blue-600 break-all">https://github.com/settings/personal-access-tokens/new</div>
+        </a>
+        <div class="rounded border border-slate-300 bg-white p-2 space-y-1 text-xs">
+          <p class="text-slate-600">Repository permissions 必須勾兩個：</p>
+          <ul class="list-disc list-inside space-y-0.5 pl-1">
+            <li><b>Administration</b>：Read and write（建立倉庫）</li>
+            <li><b>Contents</b>：Read and write（上傳檔案）</li>
+          </ul>
+          <p class="text-slate-500 mt-1">漏勾 Administration 就會出現「Resource not accessible」錯誤。</p>
+        </div>
+      </div>
+      <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-xs">
+        <p class="font-semibold text-yellow-800 mb-1">安全提醒</p>
+        <p class="text-slate-600">這個頁面不會儲存你的 PAT。如果 token 外洩，到 GitHub 設定頁刪除後重發即可。</p>
+      </div>
+    </div>
+    <div class="flex justify-end mt-4">
+      <button type="button" id="patModalOk" class="bg-slate-900 hover:bg-slate-700 text-white px-4 py-2 rounded">了解</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'https://api.github.com';
+let selectedFiles = [];
+let rootName = '';
+let uploading = false;
+let mode = 'create';
+
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-btn').forEach(b => {
+      b.classList.remove('bg-slate-900', 'text-white');
+      b.classList.add('bg-white', 'text-slate-700', 'hover:bg-slate-100');
+    });
+    btn.classList.add('bg-slate-900', 'text-white');
+    btn.classList.remove('bg-white', 'text-slate-700', 'hover:bg-slate-100');
+    mode = btn.dataset.mode;
+    updateModeUI();
+  });
+});
+
+function updateModeUI() {
+  const hint = document.getElementById('modeHint');
+  const desc = document.getElementById('descriptionField');
+  const uploadBtn = document.getElementById('uploadBtn');
+  if (mode === 'create') {
+    hint.textContent = '若同名倉庫已存在會自動切換為「推到既有倉庫」模式';
+    desc.classList.remove('hidden');
+    uploadBtn.textContent = '建立並上傳';
+  } else {
+    hint.textContent = '若倉庫不存在會自動切換為「建立新倉庫」模式';
+    desc.classList.add('hidden');
+    uploadBtn.textContent = '上傳到既有倉庫';
+  }
+}
+
+const dropzone = document.getElementById('dropzone');
+const dropzoneLabel = document.getElementById('dropzoneLabel');
+const dropzoneRoot = document.getElementById('dropzoneRoot');
+const dropzoneButtons = document.getElementById('dropzoneButtons');
+const fileList = document.getElementById('fileList');
+
+document.getElementById('fileInput').addEventListener('change', e => {
+  const f = e.target.files;
+  if (!f || f.length === 0) return;
+  rootName = '';
+  processFiles(f, '');
+  e.target.value = '';
+});
+
+document.getElementById('folderInput').addEventListener('change', e => {
+  const f = e.target.files;
+  if (!f || f.length === 0) return;
+  const first = f[0];
+  const rel = first.webkitRelativePath || '';
+  rootName = rel ? rel.split('/')[0] : '';
+  processFiles(f, rootName);
+  e.target.value = '';
+});
+
+document.getElementById('btnAddFiles').addEventListener('click', e => { e.stopPropagation(); document.getElementById('fileInput').click(); });
+document.getElementById('btnAddFolder').addEventListener('click', e => { e.stopPropagation(); document.getElementById('folderInput').click(); });
+document.getElementById('btnClear').addEventListener('click', e => {
+  e.stopPropagation();
+  selectedFiles = []; rootName = ''; updateUI();
+});
+
+dropzone.addEventListener('click', () => { if (selectedFiles.length === 0) document.getElementById('fileInput').click(); });
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('border-slate-900', 'bg-slate-100'); });
+dropzone.addEventListener('dragleave', () => { dropzone.classList.remove('border-slate-900', 'bg-slate-100'); });
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('border-slate-900', 'bg-slate-100');
+  const f = e.dataTransfer.files;
+  if (!f || f.length === 0) return;
+  rootName = '';
+  processFiles(f, '');
+});
+
+function processFiles(rawFiles, prefix) {
+  const list = Array.from(rawFiles).filter(f => !f.name.startsWith('.') && f.name !== '.DS_Store');
+  selectedFiles = list.map(file => {
+    const relPath = file.webkitRelativePath || file.name;
+    let repoPath = relPath;
+    if (prefix) {
+      if (relPath.startsWith(prefix + '/')) repoPath = relPath.slice(prefix.length + 1);
+      else if (relPath === prefix) repoPath = file.name;
+    }
+    return { displayPath: relPath, repoPath, file };
+  });
+  updateUI();
+}
+
+function fmtSize(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+  if (b < 1024 * 1024 * 1024) return (b / 1024 / 1024).toFixed(1) + ' MB';
+  return (b / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+}
+
+function updateUI() {
+  const totalSize = selectedFiles.reduce((s, f) => s + f.file.size, 0);
+  if (selectedFiles.length === 0) {
+    dropzoneLabel.textContent = '拖拽檔案或資料夾到此處，或點擊選擇';
+    dropzoneRoot.classList.add('hidden');
+    dropzoneButtons.classList.add('hidden');
+    fileList.classList.add('hidden');
+    fileList.innerHTML = '';
+  } else {
+    dropzoneLabel.textContent = `已選擇 ${selectedFiles.length} 個檔案（共 ${fmtSize(totalSize)}）`;
+    if (rootName) {
+      dropzoneRoot.classList.remove('hidden');
+      dropzoneRoot.innerHTML = `根目錄：<code class="px-1 py-0.5 rounded bg-white border">${escapeHtml(rootName)}</code>`;
+    } else {
+      dropzoneRoot.classList.add('hidden');
+    }
+    dropzoneButtons.classList.remove('hidden');
+    fileList.classList.remove('hidden');
+    fileList.innerHTML = selectedFiles.map((f, i) => `
+      <div class="flex items-center gap-2 px-3 py-1.5 text-xs border-b border-slate-200 last:border-b-0 hover:bg-slate-50">
+        <span class="flex-1 truncate font-mono" title="${escapeAttr(f.repoPath)}">${escapeHtml(f.repoPath)}</span>
+        <span class="text-slate-500 shrink-0">${fmtSize(f.file.size)}</span>
+        <button data-idx="${i}" class="rm-btn shrink-0 w-5 h-5 rounded hover:bg-red-100 text-slate-400 hover:text-red-600 flex items-center justify-center">×</button>
+      </div>
+    `).join('');
+    fileList.querySelectorAll('.rm-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const idx = parseInt(btn.dataset.idx);
+        selectedFiles = selectedFiles.filter((_, i) => i !== idx);
+        updateUI();
+      });
+    });
+  }
+}
+
+async function ghFetch(path, method, body, token) {
+  const resp = await fetch(API + path, {
+    method,
+    headers: {
+      'Authorization': 'Bearer ' + token,
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'Content-Type': 'application/json',
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  return resp;
+}
+
+async function checkRepoExists(owner, repo, token) {
+  const resp = await ghFetch(`/repos/${owner}/${repo}`, 'GET', null, token);
+  return resp.status === 200;
+}
+
+async function createRepo(owner, repo, token, isPrivate, description) {
+  const resp = await ghFetch('/user/repos', 'POST', {
+    name: repo,
+    private: isPrivate,
+    auto_init: true,
+    description: description || 'Created by GitHub 上傳助手 (CubeLV)',
+  }, token);
+  if (resp.status === 201) return;
+  if (resp.status === 422) throw new Error('倉庫名稱無效或已被使用');
+  if (resp.status === 403) {
+    let detail = '';
+    try { const d = await resp.json(); if (d.message) detail = d.message; } catch {}
+    throw new Error(`建立倉庫失敗（HTTP 403）：${detail || '權限不足'}\n如果是 fine-grained token，請到 GitHub 設定補勾「Administration: Read and write」權限後重發。\n或改用 classic token 勾 repo 一項即可。`);
+  }
+  let msg = `建立倉庫失敗（HTTP ${resp.status}）`;
+  try { const d = await resp.json(); if (d.message) msg = `建立倉庫失敗：${d.message}`; } catch {}
+  throw new Error(msg);
+}
+
+async function getFileSha(owner, repo, path, token) {
+  const resp = await ghFetch(`/repos/${owner}/${repo}/contents/${encodeURI(path)}`, 'GET', null, token);
+  if (resp.status === 404) return null;
+  if (resp.status !== 200) throw new Error(`取得檔案 SHA 失敗（HTTP ${resp.status}）`);
+  const data = await resp.json();
+  return data.sha || null;
+}
+
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const r = reader.result;
+      const idx = r.indexOf(',');
+      resolve(idx >= 0 ? r.slice(idx + 1) : r);
+    };
+    reader.onerror = () => reject(new Error('讀取檔案 ' + file.name + ' 失敗'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadSingleFile(owner, repo, entry, message, token) {
+  const contentBase64 = await readFileAsBase64(entry.file);
+  const existingSha = await getFileSha(owner, repo, entry.path, token);
+  const resp = await ghFetch(`/repos/${owner}/${repo}/contents/${encodeURI(entry.path)}`, 'PUT', {
+    message,
+    content: contentBase64,
+    ...(existingSha ? { sha: existingSha } : {}),
+  }, token);
+  if (resp.status !== 200 && resp.status !== 201) {
+    let msg = `上傳 ${entry.path} 失敗（HTTP ${resp.status}）`;
+    try { const d = await resp.json(); if (d.message) msg = `上傳 ${entry.path} 失敗：${d.message}`; } catch {}
+    throw new Error(msg);
+  }
+  const data = await resp.json();
+  return { path: entry.path, sha: data.content?.sha || '' };
+}
+
+async function runUpload() {
+  const owner = document.getElementById('owner').value.trim();
+  const repoName = document.getElementById('repoName').value.trim();
+  const token = document.getElementById('token').value.trim();
+  const commitMessage = document.getElementById('commitMessage').value.trim();
+  const isPrivate = document.getElementById('isPrivate').checked;
+  const description = document.getElementById('description').value.trim();
+
+  if (selectedFiles.length === 0) return showError('請先選擇檔案或資料夾');
+  if (!owner) return showError('請輸入 GitHub 帳號');
+  if (!token) return showError('請輸入 GitHub PAT');
+  if (!repoName) return showError('請輸入倉庫名稱');
+  if (!/^[A-Za-z0-9._-]+$/.test(repoName)) return showError('倉庫名稱只能包含英文字母、數字、點、底線、連字號');
+  if (!commitMessage) return showError('請輸入 commit 訊息');
+
+  hideError(); hideResult();
+  uploading = true;
+  setUploadingUI(true);
+  showProgress(0, selectedFiles.length, '檢查倉庫狀態...');
+
+  try {
+    const exists = await checkRepoExists(owner, repoName, token);
+    if (!exists && mode === 'update') throw new Error(`倉庫 ${owner}/${repoName} 不存在，無法更新。請改用「建立新倉庫」模式。`);
+    if (!exists) {
+      showProgress(0, selectedFiles.length, `建立倉庫 ${owner}/${repoName}...`);
+      await createRepo(owner, repoName, token, isPrivate, description);
+    }
+    const failed = [];
+    let lastCommitSha = '';
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const entry = selectedFiles[i];
+      showProgress(i, selectedFiles.length, `上傳 ${i + 1}/${selectedFiles.length}: ${entry.repoPath}`);
+      try {
+        const r = await uploadSingleFile(owner, repoName, entry, commitMessage, token);
+        lastCommitSha = r.sha;
+      } catch (e) {
+        failed.push({ path: entry.path, error: e.message });
+      }
+    }
+    const uploaded = selectedFiles.length - failed.length;
+    if (uploaded === 0) throw new Error(`所有檔案上傳失敗。第一個錯誤：${failed[0]?.error}`);
+    showProgress(selectedFiles.length, selectedFiles.length, `完成：成功 ${uploaded} 個、失敗 ${failed.length} 個`);
+    showResult({
+      repoUrl: `https://github.com/${owner}/${repoName}`,
+      uploaded, failedFiles: failed, created: !exists,
+    });
+  } catch (e) {
+    showError(e.message);
+  } finally {
+    uploading = false;
+    setUploadingUI(false);
+  }
+}
+
+function setUploadingUI(busy) {
+  document.getElementById('uploadBtn').disabled = busy || selectedFiles.length === 0;
+  document.getElementById('resetBtn').disabled = busy;
+  document.getElementById('owner').disabled = busy;
+  document.getElementById('repoName').disabled = busy;
+  document.getElementById('token').disabled = busy;
+  document.getElementById('commitMessage').disabled = busy;
+  document.getElementById('isPrivate').disabled = busy;
+  document.getElementById('description').disabled = busy;
+  document.querySelectorAll('.mode-btn').forEach(b => b.disabled = busy);
+}
+
+function showProgress(current, total, message) {
+  document.getElementById('progressBox').classList.remove('hidden');
+  document.getElementById('progressLabel').textContent = message;
+  const pct = total > 0 ? Math.round(current / total * 100) : 0;
+  document.getElementById('progressPercent').textContent = pct + '%';
+  document.getElementById('progressBar').style.width = pct + '%';
+}
+
+function showResult(r) {
+  const box = document.getElementById('resultBox');
+  box.classList.remove('hidden');
+  const failedHtml = r.failedFiles.length > 0 ? `
+    <details class="text-sm">
+      <summary class="text-slate-600 hover:text-slate-900 select-none flex items-center gap-1">
+        <span class="chev inline-block">▶</span> 查看失敗清單（${r.failedFiles.length}）
+      </summary>
+      <div class="mt-2 max-h-40 overflow-y-auto rounded border border-slate-200 bg-slate-50 p-2">
+        ${r.failedFiles.map(f => `<div class="py-1 text-xs"><div class="font-mono text-slate-900">${escapeHtml(f.path)}</div><div class="text-red-600">${escapeHtml(f.error)}</div></div>`).join('')}
+      </div>
+    </details>` : '';
+  box.innerHTML = `
+    <div class="flex items-center gap-2 mb-3">
+      <span class="w-7 h-7 rounded-full flex items-center justify-center text-sm font-semibold ${r.failedFiles.length === 0 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">✓</span>
+      <h3 class="font-semibold">${r.failedFiles.length === 0 ? '全部上傳成功' : `部分上傳成功（${r.failedFiles.length} 個失敗）`}</h3>
+    </div>
+    <div class="grid grid-cols-2 gap-3 text-sm mb-3">
+      <div class="col-span-2">
+        <div class="text-xs text-slate-500">倉庫</div>
+        <a href="${escapeAttr(r.repoUrl)}" target="_blank" rel="noopener" class="text-blue-600 hover:underline break-all">${escapeHtml(r.repoUrl)}</a>
+      </div>
+      <div>
+        <div class="text-xs text-slate-500">成功檔案</div>
+        <div class="font-medium">${r.uploaded} 個</div>
+      </div>
+      ${r.created ? `<div class="col-span-2 text-xs text-slate-500">已建立新倉庫</div>` : ''}
+    </div>
+    ${failedHtml}
+    <div class="flex gap-2 flex-wrap">
+      <button id="resultOpen" class="text-sm px-3 py-1.5 rounded border border-slate-300 hover:bg-slate-50">開啟倉庫</button>
+      <button id="resultCopy" class="text-sm px-3 py-1.5 rounded border border-slate-300 hover:bg-slate-50">複製網址</button>
+      <button id="resultAgain" class="text-sm px-3 py-1.5 rounded text-slate-600 hover:bg-slate-50">再上傳一批</button>
+    </div>
+  `;
+  document.getElementById('resultOpen').addEventListener('click', () => window.open(r.repoUrl, '_blank', 'noopener'));
+  document.getElementById('resultCopy').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(r.repoUrl); alert('已複製倉庫網址'); } catch {}
+  });
+  document.getElementById('resultAgain').addEventListener('click', () => {
+    selectedFiles = []; rootName = ''; updateUI(); hideResult();
+    document.getElementById('commitMessage').value = 'Initial upload';
+  });
+}
+
+function hideResult() { document.getElementById('resultBox').classList.add('hidden'); }
+function showError(msg) {
+  const box = document.getElementById('errorBox');
+  box.classList.remove('hidden');
+  box.innerHTML = `<p class="font-semibold text-red-800 mb-1">發生錯誤</p><pre class="text-xs text-red-700 whitespace-pre-wrap font-mono">${escapeHtml(msg)}</pre>`;
+}
+function hideError() { document.getElementById('errorBox').classList.add('hidden'); }
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+function escapeAttr(s) { return escapeHtml(s); }
+
+document.getElementById('uploadBtn').addEventListener('click', runUpload);
+document.getElementById('resetBtn').addEventListener('click', () => {
+  selectedFiles = []; rootName = ''; updateUI();
+  hideResult(); hideError();
+  document.getElementById('progressBox').classList.add('hidden');
+  document.getElementById('commitMessage').value = 'Initial upload';
+});
+
+const patModal = document.getElementById('patModal');
+document.getElementById('btnPatGuide').addEventListener('click', () => patModal.classList.remove('hidden'));
+document.getElementById('patModalClose').addEventListener('click', () => patModal.classList.add('hidden'));
+document.getElementById('patModalOk').addEventListener('click', () => patModal.classList.add('hidden'));
+patModal.addEventListener('click', e => { if (e.target === patModal) patModal.classList.add('hidden'); });
+
+updateUI();
+updateModeUI();
+</script>
+</body>
+</html>
