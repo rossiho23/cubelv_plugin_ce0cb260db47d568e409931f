@@ -1,8 +1,5 @@
-# CubeLV plugin — 預設排除
-frontend/node_modules/
-backend/node_modules/
-backend/dist/
-frontend/bundle.js
-frontend/bundle.css
-cubelv-sdk.host.d.ts
+node_modules/
+*.log
 .DS_Store
+frontend/bundle.js
+backend/dist/
